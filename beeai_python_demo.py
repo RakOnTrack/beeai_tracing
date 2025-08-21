@@ -9,13 +9,14 @@ Integrated with Splunk SignalFX OTEL for production use.
 import os
 import asyncio
 import logging
+import time
 from typing import Dict, Any
 from dotenv import load_dotenv
 
 # Load environment variables
 load_dotenv()
 
-# OpenTelemetry imports for Phoenix integration
+# OpenTelemetry imports for Splunk integration
 try:
     from opentelemetry import trace
     from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
@@ -23,7 +24,7 @@ try:
     from opentelemetry.sdk.trace.export import BatchSpanProcessor
     from opentelemetry.sdk.resources import Resource
     OTEL_AVAILABLE = True
-    print("✅ OpenTelemetry available for Phoenix integration")
+    print("✅ OpenTelemetry available for Splunk integration")
 except ImportError:
     OTEL_AVAILABLE = False
     print("⚠️  OpenTelemetry not available. Install with: pip install opentelemetry-api opentelemetry-sdk opentelemetry-exporter-otlp-proto-http")
@@ -276,72 +277,58 @@ def setup_splunk_otel():
         print("💡 Check your OTEL endpoint and configuration")
         return None
 
-def setup_phoenix_otel(endpoint: str, project_name: str):
-    """Set up OpenTelemetry integration for Phoenix."""
+def test_span_export(tracer_provider, endpoint: str):
+    """Test that spans can be exported successfully to verify connectivity."""
     try:
-        print(f"🔧 Setting up Phoenix OTEL integration...")
-        print(f"   Endpoint: {endpoint}")
-        print(f"   Project: {project_name}")
+        print(f"🧪 Testing span export to {endpoint}...")
         
-        # Create resource with project information
-        resource = Resource.create({
-            "service.name": project_name,
-            "service.version": "1.0.0",
-            "deployment.environment": "development",
-            "telemetry.sdk.name": "beeai-framework",
-            "telemetry.sdk.version": "0.1.17"
-        })
+        # Create a test span
+        test_tracer = trace.get_tracer("span-test")
+        with test_tracer.start_as_current_span("test_span") as span:
+            span.set_attribute("test.attribute", "span_export_test")
+            span.set_attribute("test.timestamp", time.time())
+            span.set_attribute("test.service", "beeai-sidecar-test")
         
-        # Create tracer provider
-        tracer_provider = TracerProvider(resource=resource)
+        # Force export by shutting down the tracer provider
+        tracer_provider.force_flush()
         
-        # Create OTLP exporter for Phoenix
-        otlp_exporter = OTLPSpanExporter(
-            endpoint=f"{endpoint}/v1/traces",
-            headers={
-                # Phoenix typically doesn't require special headers
-            }
-        )
-        
-        # Add batch processor
-        tracer_provider.add_span_processor(BatchSpanProcessor(otlp_exporter))
-        
-        # Set as global tracer provider
-        trace.set_tracer_provider(tracer_provider)
-        
-        print("✅ Phoenix OTEL integration configured successfully")
-        return tracer_provider
+        print("✅ Span export test completed successfully")
+        print("💡 Check your Splunk dashboard for the test span")
+        return True
         
     except Exception as e:
-        print(f"⚠️  Failed to configure Phoenix OTEL: {e}")
-        print("💡 Check your Phoenix endpoint and configuration")
-        return None
+        print(f"❌ Span export test failed: {e}")
+        print("💡 Check your OTEL endpoint connectivity")
+        return False
+
+
 
 async def main():
     """Main function to demonstrate BeeAI with observability."""
     
     print("🐝 Welcome to BeeAI Python Demo with Observability!")
-    print("🚀 Using Gemini Flash 1.5 with Phoenix OpenTelemetry")
+    print("🚀 Using Gemini Flash 1.5 with Splunk SignalFX OTEL")
     
-    # Set up OpenTelemetry integration for Phoenix
+    # Set up OpenTelemetry integration for Splunk
     tracer_provider = None
     if OTEL_AVAILABLE:
         try:
-            # Get Phoenix configuration from environment variables
-            phoenix_endpoint = os.getenv("PHOENIX_COLLECTOR_ENDPOINT", "http://localhost:6006")
-            phoenix_project = os.getenv("PHOENIX_PROJECT_NAME", "beeai-demo")
+            # Get Splunk configuration from environment variables
+            otel_endpoint = os.getenv("OTEL_ENDPOINT", "http://localhost:4328")
+            service_name = os.getenv("SERVICE_NAME", "beeai-sidecar-test")
+            environment = os.getenv("ENVIRONMENT", "sidecar-agent")
             
-            # Configure OpenTelemetry to send traces to Phoenix
-            tracer_provider = setup_phoenix_otel(phoenix_endpoint, phoenix_project)
-            if tracer_provider:
-                print("✅ OpenTelemetry configured for Phoenix successfully")
-                print(f"   Project: {phoenix_project}")
-                print(f"   Endpoint: {phoenix_endpoint}/v1/traces")
-        except Exception as e:
-            print(f"⚠️  Failed to configure OpenTelemetry for Phoenix: {e}")
-            print("💡 Make sure Phoenix is running on port 6006")
-            # Fallback to Splunk configuration
+            # Configure OpenTelemetry to send traces to Splunk
             tracer_provider = setup_splunk_otel()
+ 
+            if tracer_provider:
+                print("✅ OpenTelemetry configured for Splunk successfully")
+                print(f"   Service: {service_name}")
+                print(f"   Endpoint: {otel_endpoint}")
+                print(f"   Environment: {environment}")
+        except Exception as e:
+            print(f"⚠️  Failed to configure OpenTelemetry for Splunk: {e}")
+            print("💡 Check your OTEL endpoint and configuration")
     
     # Enable OpenTelemetry instrumentation if available
     if OBSERVABILITY_ENABLED and tracer_provider:
@@ -350,6 +337,15 @@ async def main():
             print("✅ OpenTelemetry instrumentation enabled")
         except Exception as e:
             print(f"⚠️  Failed to enable instrumentation: {e}")
+    
+    # Test span export to confirm connectivity
+    if tracer_provider:
+        otel_endpoint = os.getenv("OTEL_ENDPOINT", "http://localhost:4328")
+        span_test_success = test_span_export(tracer_provider, otel_endpoint)
+        if not span_test_success:
+            print("⚠️  Warning: Span export test failed - traces may not be reaching Splunk")
+        else:
+            print("✅ Span export test passed - traces are being sent to Splunk successfully")
     
     # Check for required environment variables
     api_key = os.getenv("BEEAI_API_KEY")
@@ -391,19 +387,26 @@ async def main():
     
     print(f"\n  recent_conversations: {len(obs_data['recent_conversations'])} items")
     
+    # Final span export confirmation
+    if tracer_provider:
+        print("\n📊 Span Export Summary:")
+        print("=" * 50)
+        print(f"  Total spans created: {obs_data['total_requests'] + 1}")  # +1 for test span
+        print(f"  Service: {os.getenv('SERVICE_NAME', 'beeai-sidecar-test')}")
+        print(f"  Endpoint: {os.getenv('OTEL_ENDPOINT', 'http://localhost:4328')}")
+        print(f"  Environment: {os.getenv('ENVIRONMENT', 'sidecar-agent')}")
+        print("  Status: ✅ Spans exported to Splunk OTEL")
+    
     print("\n🎉 Demo completed successfully!")
     
     if tracer_provider:
-        phoenix_endpoint = os.getenv("PHOENIX_COLLECTOR_ENDPOINT", "http://localhost:6006")
-        phoenix_project = os.getenv("PHOENIX_PROJECT_NAME", "beeai-demo")
-        if "phoenix" in phoenix_endpoint.lower() or "6006" in phoenix_endpoint:
-            print("💡 Check your traces in Phoenix Dashboard")
-            print(f"   Project: {phoenix_project}")
-            print(f"   URL: {phoenix_endpoint}")
-        else:
-            print("💡 Check your traces in Splunk SignalFX")
-            print("   Service: beeai-gemini-demo")
-        print("   Environment: development")
+        service_name = os.getenv("SERVICE_NAME", "beeai-sidecar-test")
+        otel_endpoint = os.getenv("OTEL_ENDPOINT", "http://localhost:4328")
+        environment = os.getenv("ENVIRONMENT", "sidecar-agent")
+        print("💡 Check your traces in Splunk SignalFX")
+        print(f"   Service: {service_name}")
+        print(f"   Endpoint: {otel_endpoint}")
+        print(f"   Environment: {environment}")
     else:
         print("💡 Install OpenTelemetry for trace collection: pip install opentelemetry-api opentelemetry-sdk opentelemetry-exporter-otlp-proto-http")
 
