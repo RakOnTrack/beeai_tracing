@@ -1,0 +1,26 @@
+{
+  "name": "beeai-project",
+  "version": "1.0.0",
+  "description": "My first BeeAI project - A simple AI agent using the BeeAI framework",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "beeai",
+    "ai",
+    "agent",
+    "llm",
+    "framework"
+  ],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@i-am-bee/beeai-sdk": "^0.0.22",
+    "beeai-framework": "^0.1.17",
+    "dotenv": "^17.2.1"
+  }
+}

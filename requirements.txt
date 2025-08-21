@@ -1,0 +1,24 @@
+# BeeAI Python Demo Dependencies for Splunk SignalFX
+# Core BeeAI Framework
+beeai-framework>=0.1.17
+
+# OpenTelemetry instrumentation for BeeAI (for observability)
+openinference-instrumentation-beeai>=1.5.2
+
+# OpenTelemetry packages for Splunk SignalFX
+opentelemetry-api>=1.20.0
+opentelemetry-sdk>=1.20.0
+opentelemetry-exporter-otlp-proto-http>=1.20.0
+
+# Environment variable management
+python-dotenv>=1.0.0
+
+# HTTP requests for testing
+requests>=2.25.0
+
+# Async support (usually included with Python 3.7+)
+# asyncio is built-in
+
+# Optional: For enhanced logging and monitoring
+# rich>=13.0.0  # Beautiful terminal output
+# structlog>=23.0.0  # Structured logging
