@@ -8,7 +8,8 @@ from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware # For allowing frontend to access API 
 from openinference.instrumentation.beeai import BeeAIInstrumentor 
  
-from agent import run_faq_agent, _setup_rag_system 
+from agent import run_faq_agent, _setup_rag_system, get_observability_data 
+import time # Added for observability endpoint
  
 load_dotenv() 
  
@@ -82,7 +83,24 @@ async def chat_endpoint(request_body: ChatRequest):
     except Exception as e: 
         print(f"Error processing chat request: {e}") 
         raise HTTPException(status_code=500, detail=f"Internal server error: {e}") 
- 
+
+@app.get("/observability")
+async def observability_endpoint():
+    """
+    Endpoint for system observability and health monitoring.
+    Returns detailed information about the RAG system components and OpenTelemetry status.
+    """
+    try:
+        obs_data = get_observability_data()
+        return {
+            "status": "success",
+            "timestamp": time.time(),
+            "data": obs_data
+        }
+    except Exception as e:
+        print(f"Error getting observability data: {e}")
+        raise HTTPException(status_code=500, detail=f"Error retrieving observability data: {e}")
+
 if __name__ == "__main__": 
     import uvicorn 
     port = 8001 
